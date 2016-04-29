@@ -11,7 +11,7 @@ import http.client
 import cgi
 import urllib
 
-HOST_NAME = 'localhost'
+HOST_NAME = ''
 PORT_NUMBER = 35353
 
 MP3_URL = 'https://s3.eu-central-1.amazonaws.com/sounds.matos-sorge/bell.mp3'
