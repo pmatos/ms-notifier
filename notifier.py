@@ -77,8 +77,8 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
         elif ctype == 'application/x-www-form-urlencoded':
             length = int(self.headers['Content-Length'])
             print('content length is {}'.format(length))
-            postvars = urllib.parse_qs(self.rfile.read(length),
-                                       keep_blank_values=1)
+            postvars = urllib.parse.parse_qs(self.rfile.read(length),
+                                             keep_blank_values=1)
         else:
             postvars = {}
 
