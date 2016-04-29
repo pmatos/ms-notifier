@@ -9,6 +9,7 @@ import collections
 import http.server
 import http.client
 import cgi
+import urllib
 
 HOST_NAME = 'localhost'
 PORT_NUMBER = 35353
@@ -52,6 +53,7 @@ def play_bell():
 
     restore_system_state(state)
 
+
 def decode_byte_dicts(data):
     if isinstance(data, bytes):
         return data.decode('utf-8')
@@ -75,8 +77,8 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
         elif ctype == 'application/x-www-form-urlencoded':
             length = int(self.headers['Content-Length'])
             print('content length is {}'.format(length))
-            postvars = cgi.parse_qs(self.rfile.read(length),
-                                    keep_blank_values=1)
+            postvars = urllib.parse_qs(self.rfile.read(length),
+                                       keep_blank_values=1)
         else:
             postvars = {}
 
