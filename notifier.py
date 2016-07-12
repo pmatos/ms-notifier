@@ -74,7 +74,8 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
         print('params are {}'.format(pdict))
         if ctype == 'multipart/form-data':
             postvars = cgi.parse_multipart(self.rfile, pdict)
-        elif ctype == 'application/x-www-form-urlencoded':
+        elif (ctype == 'application/x-www-form-urlencoded'
+              or ctype == 'text/plain'):
             length = int(self.headers['Content-Length'])
             print('content length is {}'.format(length))
             postvars = urllib.parse.parse_qs(self.rfile.read(length),
