@@ -15,14 +15,53 @@ HOST_NAME = ''
 PORT_NUMBER = 35353
 
 MP3_URL = 'https://s3.eu-central-1.amazonaws.com/sounds.matos-sorge/bell.mp3'
-
+HELLO_URI = 'x-sonos-spotify:spotify%3atrack%3a6HMvJcdw6qLsyV1b5x29sa?sid=9&flags=8224&sn=1'
 
 def save_system_state():
+    """Saves system state into a Sonos State variable."""
+    # Need to save:
+    # * groups
+    # * for each speaker:
+    # ** volumes
+    # ** if currently playing music, where is it playing?
     return None
 
 
 def restore_system_state(state):
     return
+
+def play_hello():
+    """Plays the 'Hello, is it me you're looking for' by Lionel Ritchie
+    from Spotify"""
+
+    speakers = soco.discover()
+
+    if speakers is None:
+        print("Can't find speakers")
+        return
+
+    state = save_system_state()
+
+    # unjoin so we can grab the office speaker
+    office = None
+    for spk in speakers:
+        spk.unjoin()
+        if spk.player_name == 'Office':
+            office = spk
+
+    if office is None:
+        print("Can't find office")
+        return
+
+    # set volume
+    office.volume = 40
+    office.play_uri(HELLO_URI, start=False)
+    office.seek('00:00:42')
+    office.play()
+    time.sleep(9)
+    office.stop()
+
+    restore_system_state(state)
 
 
 def play_bell():
