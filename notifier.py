@@ -2,14 +2,22 @@ import sys
 import time
 
 # path append for development only
-sys.path.append('/home/pmatos/Projects/SoCo')
+# sys.path.append('/home/pmatos/Projects/SoCo')
 import soco
+from ivona_api import ivona_api
+import boto3
 
 import collections
 import http.server
 import http.client
 import cgi
 import urllib
+
+IVONA_ACCESS='GDNAJNH6ZRJLOPDJ7E2A'
+IVONA_SECRET='M60QJ3zzo9goFZnVm5VZaNmjyOHlFcAJ8gPbiDMA'
+
+AMAZON_ACCESS='AKIAJPYBNKJRPJ3SASEA'
+AMAZON_SECRET='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'
 
 HOST_NAME = ''
 PORT_NUMBER = 35353
@@ -30,30 +38,86 @@ def save_system_state():
 def restore_system_state(state):
     return
 
+
+def find_spk(name):
+    """Returns the speaker with a given name or None."""
+    speakers = soco.discover()
+    for spk in speakers:
+        if spk.player_name == name:
+            return spk
+    return None
+
+
+def play_morningchime():
+    """Plays morning chime to dining room speaker."""
+    morningspk = find_spk('Office')
+
+    # Available on 05.08.2016
+    #  fr-FR: Celine, Mathieu
+    # pt-BR: Vitoria, Ricardo
+    # sv-SE: Astrid
+    # en-GB: Amy, Brian, Emma
+    # cy-GB: Gwyneth, Geraint
+    # en-AU: Nicole, Russell
+    # da-DK: Naja, Mads
+    # it-IT: Carla, Giorgio
+    # es-US: Penelope, Miguel
+    # pt-PT: Cristiano, Ines
+    # de-DE: Marlene, Hans
+    # nl-NL: Lotte, Ruben
+    # en-IN: Raveena
+    # en-GB-WLS: Gwyneth, Geraint
+    # nb-NO: Liv
+    # en-US: Salli, Joey, Chipmunk, Eric, Idra, Kimberly
+    # is-IS: Dora, Karl
+    # ro-RO: Carmen
+    # fr-CA: Chantal
+    # ru-RU: Maxim, Tatyana
+    # tr-TR: Filiz
+    # es-ES: Conchita, Enrique
+    # pl-PL: Agnieszka, Jacek, Ewa, Jan, Ma
+    ivona = ivona_api.IvonaAPI(IVONA_ACCESS,
+                               IVONA_SECRET)
+    voicedata = ivona.get_available_voices('en-GB')
+    voices = []
+    for vd in voicedata:
+        voices.append(vd['Name'])
+    morningspk.unjoin()
+    assert(morningspk.is_coordinator)
+    morningspk.clear_queue()
+    for voicename in voices:
+        print('creating tts with {}'.format(voicename))
+        with open('{}-morning.mp3'.format(voicename), 'wb') as f:
+            ivona.text_to_speech('Good morning. My name is {} and I am here to bring you good news. What a beautiful day it is. Rise and shine!'.format(voicename), f)
+
+        print('uploading to amazon')
+        s3 = boto3.resource('s3', 'eu-central-1',
+                            aws_access_key_id=AMAZON_ACCESS,
+                            aws_secret_access_key=AMAZON_SECRET)
+        k = s3.Object('sounds.matos-sorge', 'tmp/{}-morning.mp3'.format(voicename))
+        k.put(Body=open('{}-morning.mp3'.format(voicename), 'rb'))
+        k.Acl().put(ACL='public-read')
+
+        morningspk.add_uri_to_queue('https://s3.eu-central-1.amazonaws.com/sounds.matos-sorge/tmp/{}-morning.mp3'.format(voicename))
+
+    print('playing in speaker {}'.format(morningspk.player_name))
+    morningspk.play_from_queue(0)
+
+
+
 def play_hello():
     """Plays the 'Hello, is it me you're looking for' by Lionel Ritchie
     from Spotify"""
-
-    speakers = soco.discover()
-
-    if speakers is None:
-        print("Can't find speakers")
-        return
-
     state = save_system_state()
 
     # unjoin so we can grab the office speaker
-    office = None
-    for spk in speakers:
-        spk.unjoin()
-        if spk.player_name == 'Office':
-            office = spk
-
+    office = find_spk('Office')
     if office is None:
         print("Can't find office")
         return
 
     # set volume
+    office.unjoin()
     office.volume = 40
     office.play_uri(HELLO_URI, start=False)
     office.seek('00:00:42')
