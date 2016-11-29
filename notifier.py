@@ -1,4 +1,5 @@
 import sys
+import datetime
 import time
 
 # path append for development only
@@ -104,6 +105,37 @@ def play_morningchime():
     morningspk.play_from_queue(0)
 
 
+def play_child_call(name):
+    callstr = '{} is calling you.'.format(name)
+    filename = '{}-call.mp3'.format(name)
+
+    ivona = ivona_api.IvonaAPI(IVONA_ACCESS, IVONA_SECRET)
+
+    gym = find_spk('Gym')
+    office = find_spk('Office')
+
+    with open(filename, 'wb') as f:
+        ivona.text_to_speech(callstr, f, voice_name='Amy', language='en-GB')
+
+    s3 = boto3.resource('s3', 'eu-central-1',
+                        aws_access_key_id=AMAZON_ACCESS,
+                        aws_secret_access_key=AMAZON_SECRET)
+    k = s3.Object('sounds.matos-sorge', filename)
+    k.put(Body=open(filename, 'rb'))
+    k.Acl().put(ACL='public-read')
+
+    uri = 'https://s3.eu-central-1.amazonaws.com/sounds.matos-sorge/{}'\
+          .format(filename)
+    office.play_uri(uri)
+
+
+def play_kimberly():
+    play_child_call('Kimberly')
+
+
+def play_linus():
+    play_child_call('Linus')
+
 
 def play_hello():
     """Plays the 'Hello, is it me you're looking for' by Lionel Ritchie
@@ -190,6 +222,12 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
         print('vars are {}'.format(vars))
         if vars['type'] == ['bell']:
             play_bell()
+        elif vars['type'] == ['kimcall']:
+            play_kimberly_call()
+        elif vars['type'] == ['linuscall']:
+            play_linus_call()
+        elif vars['type'] == ['morningchime']:
+            play_morningchime()
 
 if __name__ == '__main__':
     server_class = http.server.HTTPServer
