@@ -10,7 +10,7 @@ class SonosDeviceNotFoundError(Exception):
 class Sonos(object):
 
     def __init__(self):
-        self.devices = self.discover()
+        self.discover()
         if self.devices is None:
             print('Could not find any devices in startup')
 
@@ -23,16 +23,24 @@ class Sonos(object):
                 return dev
         raise SonosDeviceNotFoundError()
 
+    def get_current_transport_state(self, dev):
+        info = dev.get_current_transport_info()
+        print(info)
+        return info['current_transport_state']
+
     def isStopped(self, dev):
-        return dev.get_current_transport_info()['current_transport_state'] == 'STOPPED'
+        return self.get_current_transport_state(dev)  == 'STOPPED'
+
+    def isPlaying(self, dev):
+        return self.get_current_transport_state(dev) == 'PLAYING'
 
     def stop(self, dev):
         if self.isStopped(dev):
             return
 
         dev.stop()
-        while dev.get_current_transport_info()['current_transport_state'] != 'STOPPED':
-            sleep(0.1)
+        while not self.isStopped(dev):
+            sleep(0.5)
 
     def play(self, dev, uri):
         # Synchronously play uri
@@ -41,6 +49,14 @@ class Sonos(object):
         # 3. ensure track is playing every second
         # 4. return once track is done
         self.stop(dev)
-        dev.play_uri(uri)
-        while dev.get_current_transport_info()['current_transport_state'] == 'PLAYING':
-            sleep(0.1)
+        assert self.isStopped(dev)
+
+        enter = True
+        while not self.isPlaying(dev):
+            if enter:
+                dev.play_uri(uri)
+                enter = False
+        assert self.isPlaying(dev)
+
+        while self.isPlaying(dev):
+            sleep(0.5)
