@@ -5,6 +5,7 @@ import time
 # path append for development only
 # sys.path.append('/home/pmatos/Projects/SoCo')
 import soco
+import soco.snapshot
 from ivona_api import ivona_api
 import boto3
 
