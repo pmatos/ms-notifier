@@ -34,12 +34,21 @@ def save_system_state():
     # * for each speaker:
     # ** volumes
     # ** if currently playing music, where is it playing?
-    return None
-
+    d = {}
+    for spk in soco.discover():
+        print('Saving state of {}'.format(spk.player_name))
+        d[spk.player_name] = soco.snapshot.Snapshot(spk, snapshot_queue=True)
+    return d
 
 def restore_system_state(state):
-    return
+    for spk, snapshot in state.items():
+        print('Restoring {}'.format(spk.player_name))
+        snapshot.restore()
 
+def test():
+    save_system_state()
+    play_morningchime()
+    restore_system_state()
 
 def find_spk(name):
     """Returns the speaker with a given name or None."""
@@ -52,7 +61,7 @@ def find_spk(name):
 
 def play_morningchime():
     """Plays morning chime to dining room speaker."""
-    morningspk = find_spk('Office')
+    morningspk = find_spk('Dining Room')
 
     # Available on 05.08.2016
     #  fr-FR: Celine, Mathieu
@@ -80,17 +89,18 @@ def play_morningchime():
     # pl-PL: Agnieszka, Jacek, Ewa, Jan, Ma
     ivona = ivona_api.IvonaAPI(IVONA_ACCESS,
                                IVONA_SECRET)
-    voicedata = ivona.get_available_voices('en-GB')
+    voicedata = ivona.get_available_voices('de-DE')
     voices = []
     for vd in voicedata:
         voices.append(vd['Name'])
     morningspk.unjoin()
     assert(morningspk.is_coordinator)
     morningspk.clear_queue()
+    voices = ['Markene']
     for voicename in voices:
         print('creating tts with {}'.format(voicename))
         with open('{}-morning.mp3'.format(voicename), 'wb') as f:
-            ivona.text_to_speech('Good morning. My name is {} and I am here to bring you good news. What a beautiful day it is. Rise and shine!'.format(voicename), f)
+            ivona.text_to_speech('Hallo kinder, hast du spass?'.format(voicename), f)
 
         print('uploading to amazon')
         s3 = boto3.resource('s3', 'eu-central-1',
