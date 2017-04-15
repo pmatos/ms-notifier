@@ -26,3 +26,6 @@ class Sonos(object):
             if dev.get_name() == name:
                 return dev
         raise SonosDeviceNotFoundError()
+
+    def get_groups(self):
+        return None
