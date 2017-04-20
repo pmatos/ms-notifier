@@ -13,4 +13,15 @@ class SonosGroup(object):
     def is_slave(self, dev):
         return dev in self.slaves
 
+    def is_stereo_pair(self):
+        return False
+
     # TODO implement __eq__, __ne__ and __hash__
+
+class StereoPair(SonosGroup):
+
+    def __init__(self, master, slave):
+        super().__init__(master, [slave])
+
+    def is_stereo_pair(self):
+        return True
