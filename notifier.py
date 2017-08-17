@@ -47,7 +47,7 @@ class BellNotification(Notification):
         super().__init__(NotificationType.STD_BELL)
 
     def run(self):
-        s = Sonos() # Our sonos system
+        s = sonos.Sonos() # Our sonos system
 
         # get state
         state = s.save_state()
@@ -216,6 +216,11 @@ def decode_byte_dicts(data):
 
 
 class MSHandler(BaseHTTPRequestHandler):
+
+    def __init__(self, request, client_address, server):
+        super().__init__(request, client_address, server)
+
+
     def do_POST(self):
         self.send_response(200)
         ctype, pdict = cgi.parse_header(self.headers.get_content_type())
@@ -245,9 +250,11 @@ class MSHandler(BaseHTTPRequestHandler):
         elif ntype == 'morningchime':
             play_morningchime()
 
+
 class FileHandler(BaseHTTPRequestHandler):
-    def __init__(self):
-        pass
+    def __init__(self, request, client_address, server):
+        super().__init__(request, client_address, server)
+
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     pass
