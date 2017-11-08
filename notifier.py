@@ -132,7 +132,7 @@ def play_bell():
     """This function plays a bell in partymode but restore the
     state of the system afterwards."""
 
-    speakers = soco.discover()
+    speakers = list(soco.discover())
 
     if speakers is None:
         print("Can't find speakers")
@@ -143,14 +143,23 @@ def play_bell():
     # unjoin so we can go to party mode
     for spk in speakers:
         spk.unjoin()
+        spk.mute = False
+
+    # Wait for unjoin to go through
+    # TODO something smarter should be done here
+    time.sleep(2)
 
     # select one for master, doesn't matter which
     master = speakers.pop()
-    master.partymode()
+    for spk in speakers:
+        spk.join(master)
+
+    # Wait for join to go through
+    # TODO something smarter should be done here
+    time.sleep(2)
 
     # set volume
-    master.volume = 40
-    for spk in speakers:
+    for spk in speakers + [master]:
         spk.volume = 40
     master.play_uri(MP3_URL)
 
