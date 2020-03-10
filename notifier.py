@@ -160,7 +160,7 @@ def play_bell():
 
     # set volume
     for spk in speakers + [master]:
-        spk.volume = 40
+        spk.volume = 50
     master.play_uri(MP3_URL)
 
     restore_system_state(state)
