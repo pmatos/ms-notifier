@@ -1,8 +1,9 @@
 import sys
 import time
+import os
+from subprocess import call
 
 # path append for development only
-# sys.path.append('/home/pmatos/Projects/SoCo')
 import soco
 from ivona_api import ivona_api
 import boto3
@@ -21,6 +22,9 @@ AMAZON_SECRET='hPexeoXcd2UcTQbuMy1F5zJbnJdwndmNPtoPKxSR'
 
 HOST_NAME = ''
 PORT_NUMBER = 35353
+
+COFFEEMACHINE_IP='192.168.178.149'
+TPLINK_SCRIPT=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tplink-smartplug', 'tplink_smartplug.py')
 
 MP3_URL = 'https://s3.eu-central-1.amazonaws.com/sounds.matos-sorge/bell.mp3'
 HELLO_URI = 'x-sonos-spotify:spotify%3atrack%3a6HMvJcdw6qLsyV1b5x29sa?sid=9&flags=8224&sn=1'
@@ -165,6 +169,20 @@ def play_bell():
 
     restore_system_state(state)
 
+def coffeemachine_on():
+    exitcode = call([TPLINK_SCRIPT, '-t', COFFEEMACHINE_IP, '-c', 'on'])
+    if exitcode == 0:
+        print('Coffee machine on successful')
+    else:
+        print('Coffee machine on failed')
+
+
+def coffeemachine_off():
+    exitcode = call([TPLINK_SCRIPT, '-t', COFFEEMACHINE_IP, '-c', 'off'])
+    if exitcode == 0:
+        print('Coffee machine off successful')
+    else:
+        print('Coffee machine off failed')
 
 def decode_byte_dicts(data):
     if isinstance(data, bytes):
@@ -175,7 +193,6 @@ def decode_byte_dicts(data):
         return type(data)(map(decode_byte_dicts, data))
     else:
         return data
-
 
 class MSHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
@@ -199,6 +216,11 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
         print('vars are {}'.format(vars))
         if vars['type'] == ['bell']:
             play_bell()
+        elif vars['type'] == ['coffeemachine']:
+            if vars['value'] == ['on']:
+                coffeemachine_on()
+            elif vars['value'] == ['off']:
+                coffeemachine_off()
 
 if __name__ == '__main__':
     server_class = http.server.HTTPServer

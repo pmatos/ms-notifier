@@ -9,7 +9,6 @@ idna>=2.6
 ivona-api>=0.3.0
 ivona-speak>=0.3.0
 jmespath>=0.9.4
-pkg-resources>=0.0.0
 python-dateutil>=2.8.0
 PyYAML>=5.1.2
 requests>=2.22.0
