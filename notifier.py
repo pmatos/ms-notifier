@@ -5,185 +5,132 @@ from subprocess import call
 
 # path append for development only
 import soco
-from ivona_api import ivona_api
-import boto3
 
-import collections
+import collections.abc
 import http.server
 import http.client
 import cgi
 import urllib
+import socket
+from mutagen.mp3 import MP3
 
-IVONA_ACCESS='GDNAJNH6ZRJLOPDJ7E2A'
-IVONA_SECRET='M60QJ3zzo9goFZnVm5VZaNmjyOHlFcAJ8gPbiDMA'
-
-AMAZON_ACCESS='AKIAJPYBNKJRPJ3SASEA'
-AMAZON_SECRET='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'
+from urllib.parse import quote
+from http.server import SimpleHTTPRequestHandler
+from socketserver import TCPServer
+from threading import Thread
 
 HOST_NAME = ''
 PORT_NUMBER = 35353
 
-COFFEEMACHINE_IP='192.168.178.149'
-TPLINK_SCRIPT=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tplink-smartplug', 'tplink_smartplug.py')
+class HttpServer(Thread):
+    """A simple HTTP Server in its own thread"""
 
-MP3_URL = 'https://s3.eu-central-1.amazonaws.com/sounds.matos-sorge/bell.mp3'
-HELLO_URI = 'x-sonos-spotify:spotify%3atrack%3a6HMvJcdw6qLsyV1b5x29sa?sid=9&flags=8224&sn=1'
+    def __init__(self, port):
+        super().__init__()
+        self.daemon = True
+        handler = SimpleHTTPRequestHandler
+        self.httpd = TCPServer(("", port), handler)
 
-def save_system_state():
-    """Saves system state into a Sonos State variable."""
-    # Need to save:
-    # * groups
-    # * for each speaker:
-    # ** volumes
-    # ** if currently playing music, where is it playing?
-    return None
+    def run(self):
+        """Start the server"""
+        print("Start HTTP server")
+        self.httpd.serve_forever()
 
-
-def restore_system_state(state):
-    return
-
-
-def find_spk(name):
-    """Returns the speaker with a given name or None."""
-    speakers = soco.discover()
-    for spk in speakers:
-        if spk.player_name == name:
-            return spk
-    return None
-
-
-def play_morningchime():
-    """Plays morning chime to dining room speaker."""
-    morningspk = find_spk('Office')
-
-    # Available on 05.08.2016
-    #  fr-FR: Celine, Mathieu
-    # pt-BR: Vitoria, Ricardo
-    # sv-SE: Astrid
-    # en-GB: Amy, Brian, Emma
-    # cy-GB: Gwyneth, Geraint
-    # en-AU: Nicole, Russell
-    # da-DK: Naja, Mads
-    # it-IT: Carla, Giorgio
-    # es-US: Penelope, Miguel
-    # pt-PT: Cristiano, Ines
-    # de-DE: Marlene, Hans
-    # nl-NL: Lotte, Ruben
-    # en-IN: Raveena
-    # en-GB-WLS: Gwyneth, Geraint
-    # nb-NO: Liv
-    # en-US: Salli, Joey, Chipmunk, Eric, Idra, Kimberly
-    # is-IS: Dora, Karl
-    # ro-RO: Carmen
-    # fr-CA: Chantal
-    # ru-RU: Maxim, Tatyana
-    # tr-TR: Filiz
-    # es-ES: Conchita, Enrique
-    # pl-PL: Agnieszka, Jacek, Ewa, Jan, Ma
-    ivona = ivona_api.IvonaAPI(IVONA_ACCESS,
-                               IVONA_SECRET)
-    voicedata = ivona.get_available_voices('en-GB')
-    voices = []
-    for vd in voicedata:
-        voices.append(vd['Name'])
-    morningspk.unjoin()
-    assert(morningspk.is_coordinator)
-    morningspk.clear_queue()
-    for voicename in voices:
-        print('creating tts with {}'.format(voicename))
-        with open('{}-morning.mp3'.format(voicename), 'wb') as f:
-            ivona.text_to_speech('Good morning. My name is {} and I am here to bring you good news. What a beautiful day it is. Rise and shine!'.format(voicename), f)
-
-        print('uploading to amazon')
-        s3 = boto3.resource('s3', 'eu-central-1',
-                            aws_access_key_id=AMAZON_ACCESS,
-                            aws_secret_access_key=AMAZON_SECRET)
-        k = s3.Object('sounds.matos-sorge', 'tmp/{}-morning.mp3'.format(voicename))
-        k.put(Body=open('{}-morning.mp3'.format(voicename), 'rb'))
-        k.Acl().put(ACL='public-read')
-
-        morningspk.add_uri_to_queue('https://s3.eu-central-1.amazonaws.com/sounds.matos-sorge/tmp/{}-morning.mp3'.format(voicename))
-
-    print('playing in speaker {}'.format(morningspk.player_name))
-    morningspk.play_from_queue(0)
-
-
-
-def play_hello():
-    """Plays the 'Hello, is it me you're looking for' by Lionel Ritchie
-    from Spotify"""
-    state = save_system_state()
-
-    # unjoin so we can grab the office speaker
-    office = find_spk('Office')
-    if office is None:
-        print("Can't find office")
-        return
-
-    # set volume
-    office.unjoin()
-    office.volume = 40
-    office.play_uri(HELLO_URI, start=False)
-    office.seek('00:00:42')
-    office.play()
-    time.sleep(9)
-    office.stop()
-
-    restore_system_state(state)
-
+    def stop(self):
+        """Stop the server"""
+        print("Stop HTTP server")
+        self.httpd.socket.close()
 
 def play_bell():
     """This function plays a bell in partymode but restore the
     state of the system afterwards."""
 
-    speakers = list(soco.discover())
+    # Find Dining Room player
+    spk = soco.discovery.by_name("Dining Room")
+    print('Found dining room speaker: {}'.format(spk))
 
-    if speakers is None:
-        print("Can't find speakers")
-        exit()
+    spk_in_group_p = sum(1 for _ in spk.group.members) > 1
+    print(' * spk is in group: {}'.format(spk_in_group_p))
+    
+    groupuid = None
+    if spk_in_group_p:
+        groupuid = spk.group.uid
+        print(' * spk group id: {}'.format(groupuid))
+    mute_p = spk.mute
+    print(' * spk muted: {}'.format(mute_p))
+    
+    volume = spk.volume
+    print(' * spk volume: {}'.format(volume))
 
-    state = save_system_state()
-
-    # unjoin so we can go to party mode
-    for spk in speakers:
+    if spk_in_group_p:
         spk.unjoin()
-        spk.mute = False
+        print('sent unjoin request')
+        still_in_group = True
+        while still_in_group:
+            print('waiting to unjoin')
+            time.sleep(0.5)
+            still_in_group = sum(1 for _ in spk.group.members) > 1
+            
+    # play
+    # To play the local file, we start a new
+    print('setting volume to 50 and playing bell')
+    spk.mute = False
+    spk.volume = 50
+    play_uri(spk, 'assets/bell.mp3')
 
-    # Wait for unjoin to go through
-    # TODO something smarter should be done here
-    time.sleep(2)
+    # restore
+    print('restoring volume to {}'.format(volume))
+    spk.volume = volume
+    print('restoring mute setting to {}'.format(mute_p))
+    spk.mute = mute_p
+    
+    if spk_in_group_p:
+        print('trying to find group to rejoin')
+        grp = None
+        for g in spk.all_groups:
+            if g.uid == groupuid:
+                print('found group with uid: {}'.format(g.uid))
+                grp = g
+        if grp:
+            print('asking to rejoin group {} with coordinator'.format(grp, grp.coordinator))
+            spk.join(grp.coordinator)
 
-    # select one for master, doesn't matter which
-    master = speakers.pop()
-    for spk in speakers:
-        spk.join(master)
+def detect_ip_address():
+    """Return the local ip-address"""
+    # Rather hackish way to get the local ip-address, recipy from
+    # https://stackoverflow.com/a/166589
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip_address = s.getsockname()[0]
+    s.close()
+    return ip_address
 
-    # Wait for join to go through
-    # TODO something smarter should be done here
-    time.sleep(2)
+def get_open_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("",0))
+    s.listen(1)
+    port = s.getsockname()[1]
+    s.close()
+    return port
 
-    # set volume
-    for spk in speakers + [master]:
-        spk.volume = 50
-    master.play_uri(MP3_URL)
+def play_uri(spk, mp3):
+    port = get_open_port()
+    server = HttpServer(port)
+    server.start()
 
-    restore_system_state(state)
+    path = os.path.join(*[quote(part) for part in os.path.split(mp3)])
+    netpath = "http://{}:{}/{}".format(detect_ip_address(), port, path)
+    number_in_queue = spk.add_uri_to_queue(netpath)
+    spk.play_from_queue(number_in_queue - 1)
 
-def coffeemachine_on():
-    exitcode = call([TPLINK_SCRIPT, '-t', COFFEEMACHINE_IP, '-c', 'on'])
-    if exitcode == 0:
-        print('Coffee machine on successful')
-    else:
-        print('Coffee machine on failed')
-
-
-def coffeemachine_off():
-    exitcode = call([TPLINK_SCRIPT, '-t', COFFEEMACHINE_IP, '-c', 'off'])
-    if exitcode == 0:
-        print('Coffee machine off successful')
-    else:
-        print('Coffee machine off failed')
-
+    audio = MP3(mp3)
+    mp3_length = int(audio.info.length)
+    time.sleep(mp3_length)
+    
+    spk.stop()
+    spk.remove_from_queue(number_in_queue - 1)
+    server.stop()
+    
 def decode_byte_dicts(data):
     if isinstance(data, bytes):
         return data.decode('utf-8')
