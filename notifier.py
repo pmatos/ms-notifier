@@ -114,10 +114,6 @@ def get_open_port():
     return port
 
 def play_uri(spk, mp3):
-    port = get_open_port()
-    server = HttpServer(port)
-    server.start()
-
     path = os.path.join(*[quote(part) for part in os.path.split(mp3)])
     netpath = "http://{}:{}/{}".format(detect_ip_address(), port, path)
     number_in_queue = spk.add_uri_to_queue(netpath)
@@ -129,7 +125,6 @@ def play_uri(spk, mp3):
     
     spk.stop()
     spk.remove_from_queue(number_in_queue - 1)
-    server.stop()
     
 def decode_byte_dicts(data):
     if isinstance(data, bytes):
@@ -170,6 +165,12 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
                 coffeemachine_off()
 
 if __name__ == '__main__':
+    # Start server to locally serve files
+    port = get_open_port()
+    local_file_server = HttpServer(port)
+    local_file_server.start()
+
+    # Start server to listen to loxone requests
     server_class = http.server.HTTPServer
     httpd = server_class((HOST_NAME, PORT_NUMBER), MSHandler)
     print(time.asctime(), "Server Starts - %s:%s" % (HOST_NAME, PORT_NUMBER))
@@ -177,5 +178,10 @@ if __name__ == '__main__':
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
+
+    # Stop loxone server
     httpd.server_close()
     print(time.asctime(), "Server Stops - %s:%s" % (HOST_NAME, PORT_NUMBER))
+
+    # Stop local files server
+    local_file_server.stop()
