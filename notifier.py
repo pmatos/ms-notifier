@@ -21,6 +21,7 @@ from threading import Thread
 
 HOST_NAME = ''
 PORT_NUMBER = 35353
+LOCALHTTPS = None
 
 class LocalHttpServer(Thread):
     """A simple HTTP Server in its own thread"""
@@ -33,12 +34,15 @@ class LocalHttpServer(Thread):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(("",0))
         s.listen(1)
-        port = s.getsockname()[1]
+        self.__port = s.getsockname()[1]
         s.close()
         
         handler = SimpleHTTPRequestHandler
-        self.httpd = TCPServer(("", port), handler)
+        self.httpd = TCPServer(("", self.__port), handler)
 
+    def get_port(self):
+        return self.__port
+        
     def run(self):
         """Start the server"""
         print("Start HTTP server")
@@ -115,7 +119,7 @@ def detect_ip_address():
 
 def play_uri(spk, mp3):
     path = os.path.join(*[quote(part) for part in os.path.split(mp3)])
-    netpath = "http://{}:{}/{}".format(detect_ip_address(), port, path)
+    netpath = "http://{}:{}/{}".format(detect_ip_address(), LOCALHTTPS.get_port(), path)
     number_in_queue = spk.add_uri_to_queue(netpath)
     spk.play_from_queue(number_in_queue - 1)
 
@@ -166,8 +170,8 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     # Start server to locally serve files
-    local_file_server = LocalHttpServer()
-    local_file_server.start()
+    LOCALHTTPS = LocalHttpServer()
+    LOCALHTTPS.start()
 
     # Start server to listen to loxone requests
     server_class = http.server.HTTPServer
@@ -183,4 +187,4 @@ if __name__ == '__main__':
     print(time.asctime(), "Server Stops - %s:%s" % (HOST_NAME, PORT_NUMBER))
 
     # Stop local files server
-    local_file_server.stop()
+    LOCALHTTPS.stop()
