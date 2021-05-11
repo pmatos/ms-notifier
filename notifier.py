@@ -22,12 +22,20 @@ from threading import Thread
 HOST_NAME = ''
 PORT_NUMBER = 35353
 
-class HttpServer(Thread):
+class LocalHttpServer(Thread):
     """A simple HTTP Server in its own thread"""
 
     def __init__(self, port):
         super().__init__()
         self.daemon = True
+
+        # Find a free port
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(("",0))
+        s.listen(1)
+        port = s.getsockname()[1]
+        s.close()
+        
         handler = SimpleHTTPRequestHandler
         self.httpd = TCPServer(("", port), handler)
 
@@ -105,14 +113,6 @@ def detect_ip_address():
     s.close()
     return ip_address
 
-def get_open_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("",0))
-    s.listen(1)
-    port = s.getsockname()[1]
-    s.close()
-    return port
-
 def play_uri(spk, mp3):
     path = os.path.join(*[quote(part) for part in os.path.split(mp3)])
     netpath = "http://{}:{}/{}".format(detect_ip_address(), port, path)
@@ -166,8 +166,7 @@ class MSHandler(http.server.BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     # Start server to locally serve files
-    port = get_open_port()
-    local_file_server = HttpServer(port)
+    local_file_server = LocalHttpServer()
     local_file_server.start()
 
     # Start server to listen to loxone requests
