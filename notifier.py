@@ -25,7 +25,7 @@ PORT_NUMBER = 35353
 class LocalHttpServer(Thread):
     """A simple HTTP Server in its own thread"""
 
-    def __init__(self, port):
+    def __init__(self):
         super().__init__()
         self.daemon = True
 
