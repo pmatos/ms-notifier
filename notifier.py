@@ -141,33 +141,10 @@ def decode_byte_dicts(data):
         return data
 
 class MSHandler(http.server.BaseHTTPRequestHandler):
-    def do_POST(self):
+    def do_GET(self):
         self.send_response(200)
-        print('headers are {}'.format(self.headers))
-        ctype, pdict = cgi.parse_header(self.headers.get_content_type())
-        print('ctype is {}'.format(ctype))
-        print('params are {}'.format(pdict))
-        if ctype == 'multipart/form-data':
-            postvars = cgi.parse_multipart(self.rfile, pdict)
-        elif (ctype == 'application/x-www-form-urlencoded'
-              or ctype == 'text/plain'):
-            length = int(self.headers['Content-Length'])
-            print('content length is {}'.format(length))
-            postvars = urllib.parse.parse_qs(self.rfile.read(length),
-                                             keep_blank_values=1)
-        else:
-            postvars = {}
-
-        vars = decode_byte_dicts(postvars)
-        print('vars are {}'.format(vars))
-        if vars['type'] == ['bell']:
-            play_bell()
-        elif vars['type'] == ['coffeemachine']:
-            if vars['value'] == ['on']:
-                coffeemachine_on()
-            elif vars['value'] == ['off']:
-                coffeemachine_off()
-
+        play_bell()
+       
 if __name__ == '__main__':
     # Start server to locally serve files
     LOCALHTTPS = LocalHttpServer()
